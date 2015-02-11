@@ -45,18 +45,21 @@ int main(int argc, char *argv[])
     char *pipe_read;
 
     // open the pipes
-    fdp_one = open(pipe_one_name, O_NONBLOCK);
-    fdp_two = open(pipe_two_name, O_NONBLOCK);
+    fdp_one = open(pipe_one_name, O_RDWR | O_NONBLOCK);
+    fdp_two = open(pipe_two_name, O_RDWR | O_NONBLOCK);
 
     // get maximum value of descriptor set
     maxfd = (fdp_one > fdp_two) ? fdp_one + 1 : fdp_two + 1;
 
+    int ret;
+
     while(1)
     {
+
         FD_ZERO(&fdset);
         FD_SET(fdp_one, &fdset);
         FD_SET(fdp_two, &fdset);
-        select(maxfd, &fdset, NULL, NULL, NULL);
+        ret = select(maxfd, &fdset, NULL, NULL, NULL);
         if(FD_ISSET(fdp_one, &fdset))
         {
             bytes_read = read(fdp_one, buf, BUFFSIZE - 1);
@@ -68,16 +71,13 @@ int main(int argc, char *argv[])
             pipe_read = pipe_two_name;
         }
 
-        if(bytes_read != 0)
+        if(strcmp(buf, EXIT) == 0)
         {
-            if(strcmp(buf, EXIT) == 0)
-            {
-                break;
-            }
-
-            buf[bytes_read] = '\0';
-            printf("%s [%d]: %s", pipe_read, bytes_read, buf);
+            break;
         }
+
+        buf[bytes_read] = '\0';
+        printf("%s [%d]: %s", pipe_read, bytes_read, buf);
 
     }
 
