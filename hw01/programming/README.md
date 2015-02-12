@@ -4,9 +4,9 @@ Author: Anthony Vicente
 
 Files:
 
-*README - this document
-*makefile - makefile to compile the C program
-*pmon.c - source code
+* README - this document
+* makefile - makefile to compile the C program
+* pmon.c - source code
 
 INSTALL:
 
