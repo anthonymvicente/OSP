@@ -6,7 +6,7 @@
 #include<fcntl.h>
 #include<unistd.h>
 
-#define BUFFSIZE 1024
+#define BUFFSIZE 255
 #define EXIT "--quit--\n"
 
 int main(int argc, char *argv[])
@@ -26,6 +26,7 @@ int main(int argc, char *argv[])
     fd_set fdset; // struct for file descriptor set
     int maxfd; // max value for descriptor set
     char buf[BUFFSIZE];
+    int retval;
 
     // make sure we're using pipes
     int i = 1;
@@ -51,15 +52,20 @@ int main(int argc, char *argv[])
     // get maximum value of descriptor set
     maxfd = (fdp_one > fdp_two) ? fdp_one + 1 : fdp_two + 1;
 
-    int ret;
-
     while(1)
     {
 
         FD_ZERO(&fdset);
         FD_SET(fdp_one, &fdset);
         FD_SET(fdp_two, &fdset);
-        ret = select(maxfd, &fdset, NULL, NULL, NULL);
+        retval = select(maxfd, &fdset, NULL, NULL, NULL);
+
+        if(retval == -1)
+        {
+            printf("An error occured while using select(), exiting...");
+            return 1;
+        }
+
         if(FD_ISSET(fdp_one, &fdset))
         {
             bytes_read = read(fdp_one, buf, BUFFSIZE - 1);
