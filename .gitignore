@@ -1,2 +1,6 @@
 */written/
 */programming/deliverables
+
+# the executables to ignore
+
+./hw01/programming/pmon
