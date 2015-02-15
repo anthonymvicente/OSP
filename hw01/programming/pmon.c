@@ -55,6 +55,7 @@ int main(int argc, char *argv[])
     while(1)
     {
 
+        // zero the set, set the file descriptors in the set, and block for input
         FD_ZERO(&fdset);
         FD_SET(fdp_one, &fdset);
         FD_SET(fdp_two, &fdset);
@@ -77,6 +78,8 @@ int main(int argc, char *argv[])
             pipe_read = pipe_two_name;
         }
 
+        // ensure the string read has a null terminating character
+        // usefull if the user attempts to overfill the buffer
         buf[bytes_read] = '\0';
 
         if((strcmp(buf, EXIT) == 0))
