@@ -77,12 +77,13 @@ int main(int argc, char *argv[])
             pipe_read = pipe_two_name;
         }
 
-        if(strcmp(buf, EXIT) == 0)
+        buf[bytes_read] = '\0';
+
+        if((strcmp(buf, EXIT) == 0))
         {
             break;
         }
 
-        buf[bytes_read] = '\0';
         printf("%s [%d]: %s", pipe_read, bytes_read, buf);
 
     }
