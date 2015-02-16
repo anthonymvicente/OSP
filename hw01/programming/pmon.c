@@ -32,7 +32,12 @@ int main(int argc, char *argv[])
     int i = 1;
     for(; i < 3; i++)
     {
-        stat(argv[i], &fstat);
+        // and the file exists
+        if((stat(argv[i], &fstat) == -1))
+        {
+            printf("%s: file does not exist\n", argv[i]);
+            return 1;
+        }
 
         if(!S_ISFIFO(fstat.st_mode))
         {
