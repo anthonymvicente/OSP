@@ -18,10 +18,12 @@ int main(int argc, char *argv[])
     //char in_buf[IN_BUFFSIZE];
     //read(STDIN_FILENO, in_buf, IN_BUFFSIZE - 1);
 
-    char *arg_line = "ls -a -l /home/";
+    char *arg_line = "ls -a -l /home/ | cat test.txt ; ls > out.txt";
     Command h_cmd;
 
     parse_command_line(arg_line, &h_cmd);
+
+    print_cmd_list(&h_cmd);
 
     return 0;
 }
@@ -38,47 +40,62 @@ void parse_command_line(char *in_line, Command *cmd)
     int active_parse_state = COMM_ST;
     c_cmd->parse_state = COMM_ST;
 
-    // our current token we're acting on
     char *active_tok;
-    active_tok = strtok(in_line, SEP);
+
+    // need a mutable string to tokenize
+    char *in_copy = (char *) malloc(MAX_IN);
+    strcpy(in_copy, in_line);
+    active_tok = strtok(in_copy,SEP);
 
     while(active_parse_state != COMPL_ST && active_parse_state != ERR_ST)
     {
         if(active_parse_state == COMM_ST)
         {
+            print_debug(54, "COMMAND");
             parse_command(c_cmd, active_tok);
             active_tok = strtok(NULL, SEP);
             next_state(c_cmd, active_tok);
             last_parse_state = active_parse_state;
             active_parse_state = c_cmd->parse_state;
+            print_debug(60, "EXIT COMMAND");
+            print_debug(60, c_cmd->token);
         } else if(active_parse_state == ARG_ST)
         {
+            print_debug(66, "ARG");
             parse_arg(c_cmd, active_tok);
             active_tok = strtok(NULL, SEP);
             next_state(c_cmd, active_tok);
             last_parse_state = active_parse_state;
             active_parse_state = c_cmd->parse_state;
+            print_debug(72, "EXITING ARG");
         } else if(active_parse_state == IN_ST)
         {
+            print_debug(77, "IN_ST");
             parse_in(c_cmd, active_tok);
             active_tok = strtok(NULL, SEP);
             last_parse_state = active_parse_state;
             active_parse_state = c_cmd->parse_state;
+            print_debug(76, "EXITING IN_ST");
         } else if(active_parse_state == OUT_ST)
         {
+            print_debug(77, "OUT_ST");
             parse_out(c_cmd, active_tok);
             active_tok = strtok(NULL, SEP);
             last_parse_state = active_parse_state;
             active_parse_state = c_cmd->parse_state;
+            print_debug(84, "EXITING OUT_ST");
         } else if(active_parse_state == FILE_ST)
         {
+            print_debug(87, "FILE_ST");
             parse_file(c_cmd, active_tok, last_parse_state);
             active_tok = strtok(NULL, SEP);
             next_state(c_cmd, active_tok);
             last_parse_state = active_parse_state;
             active_parse_state = c_cmd->parse_state;
+            print_debug(93, "EXITING FILE_ST");
         } else if(active_parse_state == PIPE_ST)
         {
+            print_debug(96, "PIPE_ST");
             active_tok = strtok(NULL, SEP);
             if(valid_pipe(c_cmd, active_tok))
             {
@@ -90,9 +107,11 @@ void parse_command_line(char *in_line, Command *cmd)
                 c_cmd->input_mode = I_PIPE;
                 last_parse_state = active_parse_state;
                 active_parse_state = c_cmd->parse_state;
+                print_debug(108, "EXITING PIPE_ST VALID");
             }
         } else if(active_parse_state == NEXT_ST)
         {
+            print_debug(112, "NEXT_ST");
             active_tok = strtok(NULL, SEP);
             if(!contains_special_char(active_tok))
             {
@@ -103,6 +122,7 @@ void parse_command_line(char *in_line, Command *cmd)
                 c_cmd->parse_state = COMM_ST;
                 last_parse_state = active_parse_state;
                 active_parse_state = c_cmd->parse_state;
+                print_debug(123, "EXITING NEXT_ST VALID");
             }
         }
     }
@@ -292,6 +312,122 @@ int contains_special_char(char *token)
     }
 
     return 0;
+}
+
+void print_cmd_list(Command *h_cmd)
+{
+    Command *c_cmd = h_cmd;
+
+    while(c_cmd != NULL)
+    {
+        print_cmd(c_cmd);
+        c_cmd = c_cmd->next;
+    }
+
+}
+
+void print_cmd(Command *c_cmd)
+{
+    printf("parse_state: %s\n", state_to_str(c_cmd->parse_state));
+    printf("command: %s\n", c_cmd->token);
+    printf("arguments: \n");
+    Arg *c_arg = c_cmd->arg_list;
+    while(c_arg != NULL)
+    {
+        printf("\t%s\n", c_arg->arg);
+        c_arg = c_arg->next;
+    }
+    printf("input_mode: %s\n", input_to_str(c_cmd->input_mode));
+    printf("input_file: %s\n", c_cmd->input_file);
+    printf("output_mode: %s\n", output_to_str(c_cmd->output_mode));
+    printf("output_file: %s\n", c_cmd->output_file);
+    printf("next_command_exec_on: %s\n", exec_to_str(c_cmd->next_command_exec_on));
+}
+
+char *state_to_str(int state)
+{
+    char *state_str;
+
+    switch(state)
+    {
+        case COMPL_ST: state_str = "COMPL_ST";
+                       break;
+        case COMM_ST: state_str = "COMM_ST";
+                      break;
+        case ARG_ST: state_str = "ARG_ST";
+                     break;
+        case IN_ST: state_str = "IN_ST";
+                    break;
+        case OUT_ST: state_str = "OUT_ST";
+                    break;
+        case FILE_ST: state_str = "FILE_ST";
+                      break;
+        case PIPE_ST: state_str = "PIPE_ST";
+                      break;
+        case NEXT_ST: state_str = "NEXT_ST";
+                      break;
+        case ERR_ST: state_str = "ERR_ST";
+                     break;
+        default: state_str = "Problem determining state";
+                 break;
+    }
+
+    return state_str;
+}
+
+char *input_to_str(int in_mode)
+{
+    char *in_string;
+
+    switch(in_mode)
+    {
+        case I_FILE: in_string = "I_FILE";
+                     break;
+        case I_PIPE: in_string = "I_PIPE";
+                     break;
+        default: in_string = "Problem determining input_mode";
+                 break;
+    }
+
+    return in_string;
+}
+
+char *output_to_str(int out_mode)
+{
+    char *out_string;
+
+    switch(out_mode)
+    {
+        case O_WRITE: out_string = "O_WRITE";
+                      break;
+        case O_APPND: out_string = "O_APPND";
+                      break;
+        case O_PIPE: out_string = "O_PIPE";
+                     break;
+        default: out_string = "Problem determing output_mode";
+                 break;
+    }
+
+    return out_string;
+}
+
+char *exec_to_str(int exec_mode)
+{
+    char *exec_string;
+
+    switch(exec_mode)
+    {
+        case NEXT_ON_ANY: exec_string = "NEXT_ON_ANY";
+                          break;
+        case NEXT_ON_SUCCESS: exec_string = "NEXT_ON_SUCCESS";
+                              break;
+        case NEXT_ON_FAIL: exec_string = "NEXT_ON_FAIL";
+                           break;
+        default: exec_string = "Problem determing next_command_exec_on";
+                 break;
+    }
+
+    return exec_string;
 }
 
 void print_debug(int line_num, char *line)

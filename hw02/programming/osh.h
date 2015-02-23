@@ -33,5 +33,11 @@ int valid_pipe(Command *, char *);
 void next_state(Command *, char *);
 void init_cmd(Command *);
 int contains_special_char(char *);
+void print_cmd_list(Command *);
+void print_cmd(Command *);
+char *state_to_str(int);
+char *input_to_str(int);
+char *output_to_str(int);
+char *exec_to_str(int);
 
 void print_debug(int, char *);
