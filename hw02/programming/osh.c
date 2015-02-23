@@ -5,6 +5,8 @@
 #include"comm.h"
 #include"osh.h"
 
+int debug = 1;
+
 int main(int argc, char *argv[])
 {
 
@@ -26,7 +28,7 @@ int main(int argc, char *argv[])
 
 void parse_command_line(char *in_line, Command *cmd)
 {
-    printf("%s\n", in_line);
+    print_debug(31, in_line);
     // point to our current command and initialize
     Command *c_cmd = cmd;
     init_cmd(c_cmd);
@@ -290,4 +292,10 @@ int contains_special_char(char *token)
     }
 
     return 0;
+}
+
+void print_debug(int line_num, char *line)
+{
+    if(debug)
+    printf("%d: %s\n", line_num, line);
 }
