@@ -1,5 +1,7 @@
 // maximum input size
 #define MAX_IN 80
+#define EXIT "exit"
+#define VERBOSE "verbose"
 #define SEP " "
 
 // state of parse
@@ -40,4 +42,4 @@ char *input_to_str(int);
 char *output_to_str(int);
 char *exec_to_str(int);
 
-void print_debug(int, char *);
+void print_debug(char *);
