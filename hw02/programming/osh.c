@@ -557,6 +557,34 @@ char *exec_to_str(int exec_mode)
     return exec_string;
 }
 
+char **build_argv(Arg *arg_list)
+{
+    char **argv;
+    int argc = 0;
+
+    Arg *loop_arg = arg_list;
+
+    while(loop_arg != NULL)
+    {
+        argc++;
+        loop_arg = loop_arg->next;
+    }
+
+    argv = (char **) (malloc((sizeof(char *) * argc) + 1));
+
+    int i = 0;
+    loop_arg = arg_list;
+    for(i = 0; i < argc; i++)
+    {
+        argv[i] = loop_arg->arg;
+        loop_arg = loop_arg->next;
+    }
+
+    argv[i] = NULL;
+
+    return argv;
+}
+
 void print_debug(char *line)
 {
     if(dflag)
