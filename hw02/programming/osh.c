@@ -6,26 +6,21 @@
 #include"osh.h"
 
 int dflag = 0;
-int vflag = 0;
-int pflag = 1;
 
 int main(int argc, char *argv[])
 {
 
     // check for options
     int opt;
-    while((opt = getopt(argc, argv, "vd")) != -1)
+    while((opt = getopt(argc, argv, "d")) != -1)
     {
         switch(opt)
         {
-            // verbose
-            case 'v': vflag = 1;
-                      break;
             // debug
             case 'd': dflag = 1;
                       printf("WARNING: debug flag found, output will be very verbose\n");
                       break;
-            case '?': printf("%s: invalid option -- '%c'\n", argv[0], optopt);
+            case '?': printf("%s: invalid option -- '%c'\n", argv[0], opt);
                       break;
         }
     }
@@ -50,19 +45,12 @@ int main(int argc, char *argv[])
             break;
         }
 
-        // check for verbose command
-        if(strcmp(arg_line, VERBOSE) == 0)
-        {
-            vflag = !vflag;
-        }
-
         // get head for command structure list
         Command h_cmd;
 
         parse_command_line(arg_line, &h_cmd);
 
-        if(pflag)
-            print_cmd_list(&h_cmd);
+        print_cmd_list(&h_cmd);
     }
 
     return 0;
@@ -73,8 +61,6 @@ void parse_command_line(char *in_line, Command *cmd)
     // point to our current command and initialize
     Command *c_cmd = cmd;
     init_cmd(c_cmd);
-
-    pflag = 1;
 
     // initialize our states
     int last_parse_state = COMM_ST;
@@ -202,12 +188,16 @@ void parse_command_line(char *in_line, Command *cmd)
                 c_cmd->parse_state = COMM_ST;
 
                 print_debug("EXITING NEXT_ST VALID");
-
             }
 
             last_parse_state = active_parse_state;
             active_parse_state = c_cmd->parse_state;
 
+        }
+        if(c_cmd->parse_state == ERR_ST)
+        {
+            cmd->parse_state = ERR_ST;
+            cmd->err_msg = c_cmd->err_msg;
         }
     }
 }
@@ -219,6 +209,7 @@ void parse_command(Command *cmd, char *token)
     if(contains_special_char(token))
     {
         cmd->parse_state = ERR_ST;
+        cmd->err_msg = "Command contains special character.";
     } else
     {
         // assume valid command
@@ -233,6 +224,7 @@ void parse_arg(Command *cmd, char *token)
     if(contains_special_char(token))
     {
         cmd->parse_state = ERR_ST;
+        cmd->err_msg = "Argument contains special character.";
     } else
     {
         // valid arg, creating or appending cmd's arg list
@@ -261,8 +253,7 @@ void parse_in(Command *cmd, char *token)
     if(cmd->input_mode != 0 || strlen(token) != 1 || token[0] != IN_RE)
     {
         cmd->parse_state = ERR_ST;
-        printf("Ambiguous input redirect.\n");
-        pflag = 0;
+        cmd->err_msg = "Ambiguous input redirect.";
         return;
     } else
     {
@@ -289,9 +280,8 @@ void parse_out(Command *cmd, char *token)
         cmd->parse_state = FILE_ST;
     } else
     {
-        printf("Ambiguous output redirect.\n");
-        pflag = 0;
         cmd->parse_state = ERR_ST;
+        cmd->err_msg = "Ambiguous output redirect.";
     }
 }
 
@@ -301,6 +291,7 @@ void parse_file(Command *cmd, char *token, int last_parse_state)
     if(contains_special_char(token))
     {
         cmd->parse_state = ERR_ST;
+        cmd->err_msg = "Filename contains special character.";
     } else
     {
         if(last_parse_state == IN_ST)
@@ -312,6 +303,7 @@ void parse_file(Command *cmd, char *token, int last_parse_state)
         } else
         {
             cmd->parse_state = ERR_ST;
+            cmd->err_msg = "Attempted file parse without valid state.";
         }
     }
 }
@@ -321,9 +313,8 @@ int valid_pipe(Command *cmd, char * token)
     // ensure output mode isn't already set (AMBIGUOUS OUTPUT)
     if(cmd->output_mode != 0)
     {
-        printf("Ambiguous output redirect.\n");
-        pflag = 0;
         cmd->parse_state = ERR_ST;
+        cmd->err_msg = "Ambiguous output redirect.";
         return 0;
     }
 
@@ -334,7 +325,7 @@ int valid_pipe(Command *cmd, char * token)
     if(token == NULL)
     {
         cmd->parse_state = ERR_ST;
-        printf("Expected command following pipe.\n");
+        cmd->err_msg = "Expected command following pipe.";
         return 0;
     }
 
@@ -406,6 +397,7 @@ void init_cmd(Command *cmd)
 {
     cmd->parse_state = 0;
     cmd->token = NULL;
+    cmd->err_msg = NULL;
     cmd->arg_list = NULL;
     cmd->last_arg = NULL;
     cmd->input_file = NULL;
@@ -441,14 +433,21 @@ void print_cmd_list(Command *h_cmd)
 {
     Command *c_cmd = h_cmd;
 
-    while(c_cmd != NULL)
+    if(c_cmd->parse_state == ERR_ST)
     {
-        printf("-------------------------\n");
-        print_cmd(c_cmd);
-        c_cmd = c_cmd->next;
-    }
+        printf("%s\n", c_cmd->err_msg);
+    } else
+    {
 
-    printf("-------------------------\n");
+        while(c_cmd != NULL)
+        {
+            printf("-------------------------\n");
+            print_cmd(c_cmd);
+            c_cmd = c_cmd->next;
+        }
+
+        printf("-------------------------\n");
+    }
 
 }
 

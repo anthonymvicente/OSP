@@ -43,8 +43,10 @@ typedef struct ArgX{
 /* A C sytle linked list to parse the input line */
 typedef struct CommandX{
         int  parse_state;
+
         // holds actual command
         char *token;
+        char *err_msg;
 
         Arg  *arg_list;
         Arg  *last_arg;

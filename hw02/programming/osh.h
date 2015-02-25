@@ -1,5 +1,5 @@
 // maximum input size
-#define MAX_IN 80
+#define MAX_IN 512
 #define EXIT "exit"
 #define VERBOSE "verbose"
 #define SEP " "
@@ -24,7 +24,7 @@
 #define FAIL_EX "||"
 #define EXEC    ';'
 
-void parse_command_line(char *cl_input, Command *);
+void parse_command_line(char *, Command *);
 
 void parse_command(Command *, char *);
 void parse_arg(Command *, char *);
