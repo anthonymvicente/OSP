@@ -25,7 +25,6 @@
 #define EXEC    ';'
 
 void parse_command_line(char *, Command *);
-
 void parse_command(Command *, char *);
 void parse_arg(Command *, char *);
 void parse_in(Command *, char *);
@@ -37,9 +36,12 @@ void init_cmd(Command *);
 int contains_special_char(char *);
 void print_cmd_list(Command *);
 void print_cmd(Command *);
+void print_argv(Command *);
 char *state_to_str(int);
 char *input_to_str(int);
 char *output_to_str(int);
 char *exec_to_str(int);
+
+char **build_argv(char *, Arg *);
 
 void print_debug(char *);
