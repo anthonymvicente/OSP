@@ -42,6 +42,8 @@ char *input_to_str(int);
 char *output_to_str(int);
 char *exec_to_str(int);
 
+void cmd_exec(Command *);
 char **build_argv(char *, Arg *);
+void file_redirect(Command *);
 
 void print_debug(char *);
