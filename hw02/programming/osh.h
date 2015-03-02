@@ -24,6 +24,7 @@
 #define FAIL_EX "||"
 #define EXEC    ';'
 
+// osh_parse.c function prototypes
 void parse_command_line(char *, Command *);
 void parse_command(Command *, char *);
 void parse_arg(Command *, char *);
@@ -41,9 +42,10 @@ char *state_to_str(int);
 char *input_to_str(int);
 char *output_to_str(int);
 char *exec_to_str(int);
+void print_debug(char *);
 
+// osh.c function prototypes
 void cmd_exec(Command *);
 char **build_argv(char *, Arg *);
 void file_redirect(Command *);
-
-void print_debug(char *);
+void mem_clean(Command *);

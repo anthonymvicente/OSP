@@ -3,6 +3,7 @@
 #include<stdlib.h>
 #include<string.h>
 #include<fcntl.h>
+#include<sys/wait.h>
 #include"comm.h"
 #include"osh.h"
 
@@ -21,7 +22,7 @@ int main(int argc, char *argv[])
             case 'd': dflag = 1;
                       printf("WARNING: debug flag found, output will be very verbose\n");
                       break;
-            case '?': printf("%s: invalid option -- '%c'\n", argv[0], opt);
+            case '?': fprintf(stderr, "%s: invalid option -- '%c'\n", argv[0], opt);
                       break;
         }
     }
@@ -52,9 +53,15 @@ int main(int argc, char *argv[])
 
         parse_command_line(arg_line, &h_cmd);
 
-        print_cmd_list(&h_cmd);
+        if(dflag || h_cmd.parse_state == ERR_ST)
+        {
+            print_cmd_list(&h_cmd);
+        }
 
-        cmd_exec(&h_cmd);
+        if(h_cmd.parse_state != ERR_ST)
+        {
+            cmd_exec(&h_cmd);
+        }
 
         //print_argv(&h_cmd);
     }
@@ -69,42 +76,63 @@ int main(int argc, char *argv[])
 
 void cmd_exec(Command *h_cmd)
 {
-
     Command *c_cmd = h_cmd;
     pid_t ch_pid;
     char **argv;
     int wait_status;
+    int exec_next;
+
     // fd for pipe
-    int pipe_fd[2];
+    int *pipe_fd;
     // read end of pipe
-    int *pipe_fd_r = &pipe_fd[0];
+    int *pipe_fd_r;
     // write end of pipe
-    int *pipe_fd_w = &pipe_fd[1];
+    int *pipe_fd_w;
 
-
-    int inf_loop = 0;
+    // pointer to pipe
+    // will point to the last pipe if needed
+    // useful for strings of pipes
+    int *l_pipe_fd;
+    int *l_pipe_fd_r;
+    int *l_pipe_fd_w;
 
     while(c_cmd != NULL)
     {
+        // assume we won't be executing another command after
+        exec_next = 0;
+
+        if(c_cmd->input_mode == I_PIPE)
+        {
+            l_pipe_fd = pipe_fd;
+            l_pipe_fd_r = &l_pipe_fd[0];
+            l_pipe_fd_w = &l_pipe_fd[1];
+        }
+
         if(c_cmd->output_mode == O_PIPE)
         {
+            pipe_fd = (int *) malloc(sizeof(int) * 2);
             if(pipe(pipe_fd) < 0)
             {
-                printf("error in creating pipe.\n");
+                fprintf(stderr, "error in creating pipe.\n");
                 exit(1);
             }
+            pipe_fd_r = &pipe_fd[0];
+            pipe_fd_w = &pipe_fd[1];
         }
+
+        // build argv
+        argv = build_argv(c_cmd->token, c_cmd->arg_list);
+
         ch_pid = fork();
         if(ch_pid < 0)
         {
-            printf("problem forking.\n");
+            fprintf(stderr, "problem forking.\n");
             exit(1);
 
         // child process
         } else if (ch_pid == 0)
         {
-            // build argv
-            argv = build_argv(c_cmd->token, c_cmd->arg_list);
+
 
             // check for and setup file redirects
             file_redirect(c_cmd);
@@ -115,34 +143,69 @@ void cmd_exec(Command *h_cmd)
                 dup2(*pipe_fd_w, STDOUT_FILENO);
                 close(*pipe_fd_w);
             }
+
+            // for I_PIPE modes, we need to read from the last pipe
             if(c_cmd->input_mode == I_PIPE)
             {
-                dup2(*pipe_fd_r, STDIN_FILENO);
+                dup2(*l_pipe_fd_r, STDIN_FILENO);
             }
 
             // exec cmd
             execvp(c_cmd->token, argv);
 
             // if we're here, something went wrong...
-            printf("exec failed.\n");
+            fprintf(stderr, "exec failed.\n");
             exit(1);
         } else
         {
             wait(&wait_status);
 
+            // done with the arguments
+            free(argv);
+
+            // if we're getting input from a pipe
+            // we can close and cleanup
+            // by now we're done with the last pipe
+            if(c_cmd->input_mode == I_PIPE)
+            {
+                close(*l_pipe_fd_r);
+                free(l_pipe_fd);
+            }
+
             // if we're outputing to a pipe, we can close it now in parent
+            // the target command will close the read end
             if(c_cmd->output_mode == O_PIPE)
             {
                 close(*pipe_fd_w);
+
+                // pipes imply execute the next command
+                exec_next = 1;
+
+            // check conditions for next command execution
+            } else if(c_cmd->next_command_exec_on == NEXT_ON_ANY)
+            {
+                exec_next = 1;
+
+            // if here, it could be an on success or on fail execution
+            } else
+            {
+                if(c_cmd->next_command_exec_on == NEXT_ON_SUCCESS && WEXITSTATUS(wait_status) == 0)
+                {
+                    exec_next = 1;
+                } else if (c_cmd->next_command_exec_on == NEXT_ON_FAIL && WEXITSTATUS(wait_status) != 0)
+                {
+                    exec_next = 1;
+                }
             }
 
-            c_cmd = c_cmd->next;
-        }
-        inf_loop++;
-        if(inf_loop == 20)
-        {
-            printf("infinite loop?\n");
-            break;
+            if(exec_next)
+            {
+                c_cmd = c_cmd->next;
+            } else
+            {
+                c_cmd = NULL;
+            }
+
         }
     }
 }
@@ -150,8 +213,8 @@ void cmd_exec(Command *h_cmd)
 void file_redirect(Command *cmd)
 {
 
-    int input_fd;
-    int output_fd;
+    int input_fd = STDIN_FILENO;
+    int output_fd = STDOUT_FILENO;
 
     if(cmd->input_mode == I_FILE)
     {
@@ -160,17 +223,16 @@ void file_redirect(Command *cmd)
     }
     if(input_fd < 0)
     {
-        printf("could not open file '%s' for input\n", cmd->input_file);
+        fprintf(stderr, "could not open file '%s' for input\n", cmd->input_file);
         exit(1);
     }
-    if(dup2(input_fd, STDIN_FILENO) < 0)
+    if(input_fd != STDIN_FILENO && dup2(input_fd, STDIN_FILENO) < 0)
     {
-        printf("problem duping '%s' for stdin\n", cmd->input_file);
+        fprintf(stderr, "problem duping '%s' for stdin\n", cmd->input_file);
         exit(1);
-    } else
-    {
-        cmd->input_fd = input_fd;
     }
+
+    cmd->input_fd = input_fd;
 
     // check for file output modes
     if(cmd->output_mode == O_WRITE)
@@ -183,16 +245,80 @@ void file_redirect(Command *cmd)
     }
     if(output_fd < 0)
     {
-        printf("could not open file '%s' for output\n", cmd->output_file);
+        fprintf(stderr, "could not open file '%s' for output\n", cmd->output_file);
         exit(1);
     }
-    if(dup2(output_fd, STDOUT_FILENO) < 0)
+    if(output_fd != STDOUT_FILENO && dup2(output_fd, STDOUT_FILENO) < 0)
     {
-        printf("problem duping '%s' for stdout\n", cmd->output_file);
+        fprintf(stderr, "problem duping '%s' for stdout\n", cmd->output_file);
         exit(1);
-    } else
-    {
-        cmd->output_fd = output_fd;
     }
 
+    cmd->output_fd = output_fd;
+
+}
+
+char **build_argv(char *command, Arg *arg_list)
+{
+    char **argv;
+    int argc = 1;
+
+    Arg *loop_arg = arg_list;
+
+    while(loop_arg != NULL)
+    {
+        argc++;
+        loop_arg = loop_arg->next;
+    }
+
+    argv = (char **) (malloc((sizeof(char *) * argc) + 1));
+
+    int i = 1;
+    loop_arg = arg_list;
+    argv[0] = command;
+    for(i = 1; i < argc; i++)
+    {
+        argv[i] = loop_arg->arg;
+        loop_arg = loop_arg->next;
+    }
+
+    argv[i] = NULL;
+
+    return argv;
+}
+
+// free up our commands after we're done
+void mem_clean(Command *h_cmd)
+{
+    if(h_cmd == NULL)
+    {
+        return;
+    }
+
+    Command *c_cmd = h_cmd;
+    Command *n_cmd;
+    Arg *c_arg;
+    Arg *n_arg;
+
+    while(c_cmd->next != NULL)
+    {
+        n_cmd = c_cmd->next;
+        c_arg = c_cmd->arg_list;
+
+        while(c_arg != NULL)
+        {
+            n_arg = c_arg->next;
+            free(c_arg);
+            c_arg = n_arg;
+        }
+
+        free(c_arg);
+
+        free(c_cmd);
+        c_cmd = n_cmd;
+    }
+
+    free(c_cmd);
+
+    return;
 }

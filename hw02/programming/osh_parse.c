@@ -35,8 +35,11 @@ void parse_command_line(char *in_line, Command *cmd)
             print_debug("COMMAND");
 
             parse_command(c_cmd, active_tok);
-            active_tok = strtok(NULL, SEP);
-            next_state(c_cmd, active_tok);
+            if(c_cmd->parse_state != ERR_ST)
+            {
+                active_tok = strtok(NULL, SEP);
+                next_state(c_cmd, active_tok);
+            }
 
             last_parse_state = active_parse_state;
             active_parse_state = c_cmd->parse_state;
@@ -49,8 +52,11 @@ void parse_command_line(char *in_line, Command *cmd)
             print_debug("ARG");
 
             parse_arg(c_cmd, active_tok);
-            active_tok = strtok(NULL, SEP);
-            next_state(c_cmd, active_tok);
+            if(c_cmd->parse_state != ERR_ST)
+            {
+                active_tok = strtok(NULL, SEP);
+                next_state(c_cmd, active_tok);
+            }
 
             last_parse_state = active_parse_state;
             active_parse_state = c_cmd->parse_state;
@@ -86,12 +92,14 @@ void parse_command_line(char *in_line, Command *cmd)
             print_debug("FILE_ST");
 
             parse_file(c_cmd, active_tok, last_parse_state);
-            active_tok = strtok(NULL, SEP);
-            next_state(c_cmd, active_tok);
+            if(c_cmd->parse_state != ERR_ST)
+            {
+                active_tok = strtok(NULL, SEP);
+                next_state(c_cmd, active_tok);
+            }
 
             last_parse_state = active_parse_state;
             active_parse_state = c_cmd->parse_state;
-
             print_debug("EXITING FILE_ST");
 
         } else if(active_parse_state == PIPE_ST)
@@ -182,6 +190,7 @@ void parse_arg(Command *cmd, char *token)
 
         Arg *new_arg = (Arg *) malloc(sizeof(Arg));
         new_arg->arg = token;
+        new_arg->next = NULL;
 
         if(cmd->arg_list == NULL)
         {
@@ -386,7 +395,7 @@ void print_cmd_list(Command *h_cmd)
 
     if(c_cmd->parse_state == ERR_ST)
     {
-        printf("%s\n", c_cmd->err_msg);
+        fprintf(stderr, "%s\n", c_cmd->err_msg);
     } else
     {
 
@@ -518,35 +527,6 @@ char *exec_to_str(int exec_mode)
     }
 
     return exec_string;
-}
-
-char **build_argv(char *command, Arg *arg_list)
-{
-    char **argv;
-    int argc = 1;
-
-    Arg *loop_arg = arg_list;
-
-    while(loop_arg != NULL)
-    {
-        argc++;
-        loop_arg = loop_arg->next;
-    }
-
-    argv = (char **) (malloc((sizeof(char *) * argc) + 1));
-
-    int i = 1;
-    loop_arg = arg_list;
-    argv[0] = command;
-    for(i = 1; i < argc; i++)
-    {
-        argv[i] = loop_arg->arg;
-        loop_arg = loop_arg->next;
-    }
-
-    argv[i] = NULL;
-
-    return argv;
 }
 
 void print_debug(char *line)
