@@ -63,6 +63,8 @@ int main(int argc, char *argv[])
             cmd_exec(&h_cmd);
         }
 
+        //mem_clean(&h_cmd);
+
         //print_argv(&h_cmd);
     }
 
@@ -81,6 +83,7 @@ void cmd_exec(Command *h_cmd)
     char **argv;
     int wait_status;
     int exec_next;
+    int pipe_count = 0;
 
     // fd for pipe
     int *pipe_fd;
@@ -106,6 +109,7 @@ void cmd_exec(Command *h_cmd)
             l_pipe_fd = pipe_fd;
             l_pipe_fd_r = &l_pipe_fd[0];
             l_pipe_fd_w = &l_pipe_fd[1];
+            c_cmd->input_fd = *l_pipe_fd_r;
         }
 
         if(c_cmd->output_mode == O_PIPE)
@@ -118,6 +122,7 @@ void cmd_exec(Command *h_cmd)
             }
             pipe_fd_r = &pipe_fd[0];
             pipe_fd_w = &pipe_fd[1];
+            c_cmd->output_fd = *pipe_fd_w;
         }
 
         // build argv
@@ -132,22 +137,23 @@ void cmd_exec(Command *h_cmd)
         // child process
         } else if (ch_pid == 0)
         {
-
-
             // check for and setup file redirects
             file_redirect(c_cmd);
 
             if(c_cmd->output_mode == O_PIPE)
             {
                 // dup pipe fd to stdout fd
-                dup2(*pipe_fd_w, STDOUT_FILENO);
-                close(*pipe_fd_w);
+                // dup2(*pipe_fd_w, STDOUT_FILENO);
+                // close(*pipe_fd_w);
+                dup2((c_cmd->output_fd), STDOUT_FILENO);
+                close(c_cmd->output_fd);
             }
 
             // for I_PIPE modes, we need to read from the last pipe
             if(c_cmd->input_mode == I_PIPE)
             {
-                dup2(*l_pipe_fd_r, STDIN_FILENO);
+                // dup2(*l_pipe_fd_r, STDIN_FILENO);
+                dup2(c_cmd->input_fd, STDIN_FILENO);
             }
 
             // exec cmd
@@ -156,27 +162,51 @@ void cmd_exec(Command *h_cmd)
             // if we're here, something went wrong...
             fprintf(stderr, "exec failed.\n");
             exit(1);
+
         } else
         {
-            wait(&wait_status);
+            c_cmd->pid = ch_pid;
 
-            // done with the arguments
-            free(argv);
+            // if we're not using pipes at all, we can just wait
+            if(c_cmd->input_mode != I_PIPE && c_cmd->output_mode != O_PIPE)
+            {
+                wait(&wait_status);
+            }
 
             // if we're getting input from a pipe
             // we can close and cleanup
             // by now we're done with the last pipe
             if(c_cmd->input_mode == I_PIPE)
             {
-                close(*l_pipe_fd_r);
+                // close(*l_pipe_fd_r);
+                // free(l_pipe_fd);
+                close(c_cmd->input_fd);
                 free(l_pipe_fd);
+
+                // keep count of the number of pipes
+                pipe_count++;
+
+                // if we haven't encountered an output pipe
+                // we can wrap up the commands that have been waiting
+                if(c_cmd->output_mode != O_PIPE)
+                {
+                    for(; pipe_count > 0; pipe_count--)
+                    {
+                        wait(&wait_status);
+                    }
+                    wait(&wait_status);
+                }
             }
+
+            // done with the arguments
+            free(argv);
 
             // if we're outputing to a pipe, we can close it now in parent
             // the target command will close the read end
             if(c_cmd->output_mode == O_PIPE)
             {
-                close(*pipe_fd_w);
+                // close(*pipe_fd_w);
+                close(c_cmd->output_fd);
 
                 // pipes imply execute the next command
                 exec_next = 1;
@@ -220,6 +250,7 @@ void file_redirect(Command *cmd)
     {
         // get fd of read file, set to close when finished
         input_fd = open(cmd->input_file, O_CLOEXEC | O_RDONLY);
+        cmd->input_fd = input_fd;
     }
     if(input_fd < 0)
     {
@@ -232,16 +263,16 @@ void file_redirect(Command *cmd)
         exit(1);
     }
 
-    cmd->input_fd = input_fd;
-
     // check for file output modes
     if(cmd->output_mode == O_WRITE)
     {
         output_fd = open(cmd->output_file, O_CLOEXEC | O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+        cmd->output_fd = output_fd;
     }
     if(cmd->output_mode == O_APPND)
     {
         output_fd = open(cmd->output_file, O_CLOEXEC | O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
+        cmd->output_fd = output_fd;
     }
     if(output_fd < 0)
     {
@@ -253,8 +284,6 @@ void file_redirect(Command *cmd)
         fprintf(stderr, "problem duping '%s' for stdout\n", cmd->output_file);
         exit(1);
     }
-
-    cmd->output_fd = output_fd;
 
 }
 
@@ -305,12 +334,16 @@ void mem_clean(Command *h_cmd)
         n_cmd = c_cmd->next;
         c_arg = c_cmd->arg_list;
 
+        printf("before arg free\n");
         while(c_arg != NULL)
         {
+            printf("freeing args\n");
             n_arg = c_arg->next;
             free(c_arg);
             c_arg = n_arg;
         }
+
+        printf("args freed\n");
 
         free(c_arg);
 
