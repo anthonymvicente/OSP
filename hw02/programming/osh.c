@@ -37,30 +37,40 @@ int main(int argc, char *argv[])
         char arg_line[MAX_IN];
         int bytes_read;
 
-        bytes_read = read(STDIN_FILENO, arg_line, MAX_IN - 1);
+        bytes_read = read(STDIN_FILENO, arg_line, MAX_IN);
 
         // remove implicit newline from cl input
         arg_line[bytes_read - 1] = '\0';
 
         // check for exit command
+        // or CTRL+d
         if(strcmp(arg_line, EXIT) == 0)
         {
             break;
-        }
-
-        // get head for command structure list
-        Command h_cmd;
-
-        parse_command_line(arg_line, &h_cmd);
-
-        if(dflag || h_cmd.parse_state == ERR_ST)
+        } else if(bytes_read == 0)
         {
-            print_cmd_list(&h_cmd);
-        }
-
-        if(h_cmd.parse_state != ERR_ST)
+            printf("\n");
+            break;
+        } else if(bytes_read == MAX_IN)
         {
-            cmd_exec(&h_cmd);
+            fprintf(stderr, "command entered was too long.");
+        } else if(bytes_read != 1)
+        {
+            // get head for command structure list
+            Command h_cmd;
+
+            parse_command_line(arg_line, &h_cmd);
+
+            if(dflag || h_cmd.parse_state == ERR_ST)
+            {
+                print_cmd_list(&h_cmd);
+            }
+
+            if(h_cmd.parse_state != ERR_ST)
+            {
+                cmd_exec(&h_cmd);
+            }
+
         }
 
         //mem_clean(&h_cmd);
