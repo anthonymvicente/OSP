@@ -7,3 +7,8 @@ Homework 01
 -----------
 
 The goal of this assignment is to create a program that, when passed two named pipes, it can detect which is being written to and print out any text it contains. It is an introduction to named pipes, I/O buffers, and low level system calls.
+
+Homework 02
+-----------
+
+Here we created a bare bones unix shell capable of executing basic command line commands.
