@@ -2,12 +2,8 @@
 #include<stdlib.h>
 #include<inttypes.h>
 #include<errno.h>
+#include<pthread.h>
 #include"tsort.h"
-
-void tsort(int, int);
-void tswap(int, int);
-
-#define BASE 10
 
 int *input_array;
 
@@ -77,59 +73,58 @@ int main(int argc, char *argv[])
     // calculate remainder elements if array is not evenly divisible
     int sub_array_remainder = array_size % thread_num;
 
+    printf("UNSORTED ARRAY\n");
     for(i = 0; i < array_size; i++)
     {
         printf("input_array[%d]: %d\n", i, input_array[i]);
     }
+    printf("\n");
 
-    tsort(0, array_size - 1);
+    //tsort(0, array_size - 1);
 
+    // set up variables for thread
+    int rc;
+    pthread_t thread[thread_num];
+    void *status;
+
+    struct indices ind[thread_num];
+    for(i = 0; i < thread_num; i++)
+    {
+
+        ind[i].thread_num = i;
+        ind[i].b_index = i * sub_array_size;
+        ind[i].e_index = ind[i].b_index + sub_array_size;
+        if(i == thread_num - 1)
+        {
+            if(sub_array_remainder == 0)
+            {
+                ind[i].e_index--;
+            } else
+            {
+                ind[i].e_index = ind[i].e_index + sub_array_remainder - 1;
+            }
+        }
+        ind[i].array_size = sub_array_size;
+
+        printf("t:%d b_index: %d\n", ind[i].thread_num, ind[i].b_index);
+        printf("t:%d e_index: %d\n", ind[i].thread_num, ind[i].e_index);
+
+        rc = pthread_create(&thread[i], NULL, tsort, (void *) &ind[i]);
+
+    }
+
+
+    for(i = 0; i < thread_num; i++)
+    {
+        pthread_join(thread[i], &status);
+    }
+
+    printf("SORTED ARRAY\n");
     for(i = 0; i < array_size; i++)
     {
         printf("input_array[%d]: %d\n", i, input_array[i]);
     }
+    printf("\n");
 
     return 0;
-}
-
-void tsort(int b_index, int e_index)
-{
-    int sorted = 0;
-    int c_index = 0;
-
-    while(!sorted)
-    {
-        sorted = 1;
-        for(c_index = b_index; c_index < e_index; c_index++)
-        {
-            if(input_array[c_index] > input_array[c_index + 1])
-            {
-                tswap(c_index, c_index + 1);
-                sorted = 0;
-            }
-        }
-
-        if(sorted)
-        {
-            break;
-        }
-
-        sorted = 1;
-        for(c_index = e_index; c_index > b_index; c_index--)
-        {
-            if(input_array[c_index - 1] > input_array[c_index])
-            {
-                tswap(c_index, c_index - 1);
-                sorted = 0;
-            }
-        }
-    }
-
-}
-
-void tswap(int x, int y)
-{
-    int temp = input_array[x];
-    input_array[x] = input_array[y];
-    input_array[y] = temp;
 }
