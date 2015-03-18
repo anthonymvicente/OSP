@@ -72,16 +72,38 @@ void *tsort(void *params)
     int b_index = thread_params->b_index;
     int e_index = thread_params->e_index;
     int *input_array = thread_params->input_array;
+    pthread_mutex_t *l_border = thread_params->l_border;
+    pthread_mutex_t *r_border = thread_params->r_border;
 
     while(!sorted)
     {
         sorted = 1;
         for(c_index = b_index; c_index < e_index; c_index++)
         {
+            // on the left side of the array, need to lock
+            if(c_index == b_index && l_border != NULL)
+            {
+                printf("t: %d-%d locking at %d\n", b_index, e_index, c_index);
+                pthread_mutex_lock(l_border);
+            // on the right side of the array, need to lock
+            } else if(c_index == e_index - 1 && r_border != NULL)
+            {
+                printf("t: %d-%d locking at %d\n", b_index, e_index, c_index);
+                pthread_mutex_lock(r_border);
+            }
             if(input_array[c_index] > input_array[c_index + 1])
             {
                 tswap(c_index, c_index + 1, input_array);
                 sorted = 0;
+            }
+            if(c_index == b_index && l_border != NULL)
+            {
+                printf("t: %d-%d unlocking at %d\n", b_index, e_index, c_index);
+                pthread_mutex_unlock(l_border);
+            } else if(c_index == e_index - 1 && r_border != NULL)
+            {
+                printf("t: %d-%d unlocking at %d\n", b_index, e_index, c_index);
+                pthread_mutex_unlock(r_border);
             }
         }
 
@@ -93,10 +115,30 @@ void *tsort(void *params)
         sorted = 1;
         for(c_index = e_index; c_index > b_index; c_index--)
         {
+            // on right side of array, lock
+            if(c_index == e_index && r_border != NULL)
+            {
+                printf("t: %d-%d locking at %d\n", b_index, e_index, c_index);
+                pthread_mutex_lock(r_border);
+            // on left side of array, lock
+            } else if(c_index == b_index + 1 && l_border != NULL)
+            {
+                printf("t: %d-%d locking at %d\n", b_index, e_index, c_index);
+                pthread_mutex_lock(l_border);
+            }
             if(input_array[c_index - 1] > input_array[c_index])
             {
                 tswap(c_index, c_index - 1, input_array);
                 sorted = 0;
+            }
+            if(c_index == e_index && r_border != NULL)
+            {
+                printf("t: %d-%d unlocking at %d\n", b_index, e_index, c_index);
+                pthread_mutex_unlock(r_border);
+            } else if(c_index == b_index + 1 && l_border != NULL)
+            {
+                printf("t: %d-%d unlocking at %d\n", b_index, e_index, c_index);
+                pthread_mutex_unlock(l_border);
             }
         }
     }

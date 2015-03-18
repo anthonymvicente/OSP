@@ -5,9 +5,6 @@
 #include<pthread.h>
 #include"tsort.h"
 
-int *input_array;
-pthread_mutex_t *border_lock;
-
 int main(int argc, char *argv[])
 {
     int thread_num = atoi(argv[1]);
@@ -35,7 +32,14 @@ int main(int argc, char *argv[])
     int thread_create_status;
     int thread_join_status;
     pthread_t thread[thread_num];
+    pthread_mutex_t border_locks[thread_num - 1];
     param_struct thread_params[thread_num];
+
+    // initalize mutexs, VERY IMPORTANT
+    for(i = 0; i < thread_num - 1; i++)
+    {
+        pthread_mutex_init(&border_locks[i], NULL);
+    }
 
     for(i = 0; i < thread_num; i++)
     {
@@ -56,6 +60,22 @@ int main(int argc, char *argv[])
             }
         }
 
+        //printf("thread %d b_index %d e_index %d\n", i, thread_params[i].b_index, thread_params[i].e_index);
+
+        if(i == 0)
+        {
+            thread_params[i].l_border = NULL;
+            thread_params[i].r_border = &border_locks[i];
+        } else if(i == thread_num - 1)
+        {
+            thread_params[i].l_border = &border_locks[i - 1];
+            thread_params[i].r_border = NULL;
+        } else
+        {
+            thread_params[i].l_border = &border_locks[i - 1];
+            thread_params[i].r_border = &border_locks[i];
+        }
+
         thread_create_status = pthread_create(&thread[i], NULL, tsort, &thread_params[i]);
 
         if(thread_create_status != 0)
@@ -64,7 +84,6 @@ int main(int argc, char *argv[])
             exit(1);
         }
     }
-
 
     for(i = 0; i < thread_num; i++)
     {
