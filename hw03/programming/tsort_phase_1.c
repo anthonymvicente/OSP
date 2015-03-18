@@ -34,27 +34,47 @@ int main(int argc, char *argv[])
 
     int thread_create_status;
     int thread_join_status;
-    pthread_t thread;
+    pthread_t thread[thread_num];
+    param_struct thread_params[thread_num];
 
-    param_struct thread_params;
-    thread_params.b_index = 0;
-    thread_params.e_index = array_size - 1;
-    thread_params.input_array = input_array;
-
-    thread_create_status = pthread_create(&thread, NULL, tsort, &thread_params);
-
-    if(thread_create_status != 0)
+    for(i = 0; i < thread_num; i++)
     {
-        fprintf(stderr, "error creating thread\n");
-        exit(1);
+        // get start and end indices for each threads subarray
+        thread_params[i].b_index = i * sub_array_size;
+        thread_params[i].e_index = thread_params[i].b_index + sub_array_size;
+        thread_params[i].input_array = input_array;
+
+        // handle remainder indices
+        if(i == thread_num - 1)
+        {
+            if(sub_array_remainder == 0)
+            {
+                thread_params[i].e_index--;
+            } else
+            {
+                thread_params[i].e_index = thread_params[i].e_index + sub_array_remainder - 1;
+            }
+        }
+
+        thread_create_status = pthread_create(&thread[i], NULL, tsort, &thread_params[i]);
+
+        if(thread_create_status != 0)
+        {
+            fprintf(stderr, "error creating thread\n");
+            exit(1);
+        }
     }
 
-    thread_join_status = pthread_join(thread, NULL);
 
-    if(thread_join_status != 0)
+    for(i = 0; i < thread_num; i++)
     {
-        fprintf(stderr, "error joining thread\n");
-        exit(1);
+        thread_join_status = pthread_join(thread[i], NULL);
+
+        if(thread_join_status != 0)
+        {
+            fprintf(stderr, "error joining thread %d\n", i);
+            exit(1);
+        }
     }
 
     printf("SORTED ARRAY\n");
