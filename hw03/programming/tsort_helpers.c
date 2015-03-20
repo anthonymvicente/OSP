@@ -74,6 +74,7 @@ void *tsort(void *params)
     int *input_array = thread_params->input_array;
     pthread_mutex_t *l_border = thread_params->l_border;
     pthread_mutex_t *r_border = thread_params->r_border;
+    pthread_mutex_t *state_lock = thread_params->state_lock;
 
     while(!sorted)
     {
@@ -83,33 +84,90 @@ void *tsort(void *params)
             // on the left side of the array, need to lock
             if(c_index == b_index && l_border != NULL)
             {
-                printf("t: %d-%d locking at %d\n", b_index, e_index, c_index);
+            //    printf("t: %d-%d locking at %d\n", b_index, e_index, c_index);
                 pthread_mutex_lock(l_border);
             // on the right side of the array, need to lock
             } else if(c_index == e_index - 1 && r_border != NULL)
             {
-                printf("t: %d-%d locking at %d\n", b_index, e_index, c_index);
+            //    printf("t: %d-%d locking at %d\n", b_index, e_index, c_index);
                 pthread_mutex_lock(r_border);
             }
             if(input_array[c_index] > input_array[c_index + 1])
             {
                 tswap(c_index, c_index + 1, input_array);
                 sorted = 0;
+                pthread_mutex_lock(state_lock);
+                thread_params->sublist_states[thread_params->sublist_num] = 0;
+                pthread_mutex_unlock(state_lock);
+
+                // swapping at left border
+                if(c_index == b_index && l_border != NULL)
+                {
+                //    printf("t: %d-%d borderswap left\n", b_index, e_index);
+                    pthread_mutex_lock(state_lock);
+                    thread_params->sublist_states[thread_params->sublist_num - 1] = 0;
+                    pthread_mutex_unlock(state_lock);
+                } else if(c_index == e_index - 1 && r_border != NULL)
+                {
+                //    printf("t: %d-%d borderswap right\n", b_index, e_index);
+                    pthread_mutex_lock(state_lock);
+                    thread_params->sublist_states[thread_params->sublist_num + 1] = 0;
+                    pthread_mutex_unlock(state_lock);
+                }
             }
             if(c_index == b_index && l_border != NULL)
             {
-                printf("t: %d-%d unlocking at %d\n", b_index, e_index, c_index);
+            //    printf("t: %d-%d unlocking at %d\n", b_index, e_index, c_index);
                 pthread_mutex_unlock(l_border);
             } else if(c_index == e_index - 1 && r_border != NULL)
             {
-                printf("t: %d-%d unlocking at %d\n", b_index, e_index, c_index);
+            //    printf("t: %d-%d unlocking at %d\n", b_index, e_index, c_index);
                 pthread_mutex_unlock(r_border);
             }
+        }
+        // ensure outside state matches inside state
+        thread_params->sublist_states[thread_params->sublist_num] = sorted;
+
+        //printf("t: %d-%d sorted: %d sublist-state: %d\n", b_index, e_index, sorted, thread_params->sublist_states[thread_params->sublist_num]);
+
+        if(sorted)
+        {
+            pthread_mutex_lock(state_lock);
+            thread_params->sublist_states[thread_params->sublist_num] = 1;
+            pthread_mutex_unlock(state_lock);
+        }
+
+        int l = 0;
+        while(sorted)
+        {
+            //printf("t: %d-%d busy wait\n", b_index, e_index);
+            pthread_mutex_lock(state_lock);
+            if(!l)
+            {
+                print_states(thread_params->sublist_states, thread_params->num_of_sublists);
+                l = 1;
+            }
+            if(check_states(thread_params->sublist_states, thread_params->num_of_sublists))
+            {
+                pthread_mutex_unlock(state_lock);
+                break;
+            }
+            sorted = thread_params->sublist_states[thread_params->sublist_num];
+            pthread_mutex_unlock(state_lock);
         }
 
         if(sorted)
         {
-            break;
+            if(is_sorted(b_index, e_index, input_array))
+            {
+            //    printf("t: %d-%d exiting with state %d\n", b_index, e_index, thread_params->sublist_states[thread_params->sublist_num]);
+                pthread_exit(NULL);
+            } else
+            {
+                pthread_mutex_lock(state_lock);
+                thread_params->sublist_states[thread_params->sublist_num] = 0;
+                pthread_mutex_unlock(state_lock);
+            }
         }
 
         sorted = 1;
@@ -118,31 +176,85 @@ void *tsort(void *params)
             // on right side of array, lock
             if(c_index == e_index && r_border != NULL)
             {
-                printf("t: %d-%d locking at %d\n", b_index, e_index, c_index);
+            //    printf("t: %d-%d locking at %d\n", b_index, e_index, c_index);
                 pthread_mutex_lock(r_border);
             // on left side of array, lock
             } else if(c_index == b_index + 1 && l_border != NULL)
             {
-                printf("t: %d-%d locking at %d\n", b_index, e_index, c_index);
+            //    printf("t: %d-%d locking at %d\n", b_index, e_index, c_index);
                 pthread_mutex_lock(l_border);
             }
             if(input_array[c_index - 1] > input_array[c_index])
             {
                 tswap(c_index, c_index - 1, input_array);
                 sorted = 0;
+                pthread_mutex_lock(state_lock);
+                thread_params->sublist_states[thread_params->sublist_num] = 0;
+                pthread_mutex_unlock(state_lock);
+
+                if(c_index == e_index && r_border != NULL)
+                {
+                //    printf("t: %d-%d borderswap right\n", b_index, e_index);
+                    pthread_mutex_lock(state_lock);
+                    thread_params->sublist_states[thread_params->sublist_num + 1] = 0;
+                    pthread_mutex_unlock(state_lock);
+                } else if(c_index == b_index + 1 && l_border != NULL)
+                {
+                //    printf("t: %d-%d borderswap left\n", b_index, e_index);
+                    pthread_mutex_lock(state_lock);
+                    thread_params->sublist_states[thread_params->sublist_num - 1] = 0;
+                    pthread_mutex_unlock(state_lock);
+                }
             }
             if(c_index == e_index && r_border != NULL)
             {
-                printf("t: %d-%d unlocking at %d\n", b_index, e_index, c_index);
+            //    printf("t: %d-%d unlocking at %d\n", b_index, e_index, c_index);
                 pthread_mutex_unlock(r_border);
             } else if(c_index == b_index + 1 && l_border != NULL)
             {
-                printf("t: %d-%d unlocking at %d\n", b_index, e_index, c_index);
+            //    printf("t: %d-%d unlocking at %d\n", b_index, e_index, c_index);
                 pthread_mutex_unlock(l_border);
             }
         }
+        thread_params->sublist_states[thread_params->sublist_num] = sorted;
+
+        if(sorted)
+        {
+            pthread_mutex_lock(state_lock);
+            thread_params->sublist_states[thread_params->sublist_num] = 1;
+            pthread_mutex_unlock(state_lock);
+        }
+
+        while(sorted)
+        {
+            //printf("t: %d-%d busy wait\n", b_index, e_index);
+            pthread_mutex_lock(state_lock);
+            if(check_states(thread_params->sublist_states, thread_params->num_of_sublists))
+            {
+                pthread_mutex_unlock(state_lock);
+                break;
+            }
+            sorted = thread_params->sublist_states[thread_params->sublist_num];
+            pthread_mutex_unlock(state_lock);
+        }
+
+        if(sorted)
+        {
+            if(is_sorted(b_index, e_index, input_array))
+            {
+            //    printf("t: %d-%d exiting with state %d\n", b_index, e_index, thread_params->sublist_states[thread_params->sublist_num]);
+                pthread_exit(NULL);
+            } else
+            {
+                pthread_mutex_lock(state_lock);
+                thread_params->sublist_states[thread_params->sublist_num] = 0;
+                pthread_mutex_unlock(state_lock);
+            }
+        }
+
     }
 
+    //printf("t: %d-%d exiting with state %d\n", b_index, e_index, thread_params->sublist_states[thread_params->sublist_num]);
     pthread_exit(NULL);
 }
 
@@ -151,4 +263,41 @@ void tswap(int x, int y, int *input_array)
     int temp = input_array[x];
     input_array[x] = input_array[y];
     input_array[y] = temp;
+}
+
+int is_sorted(int b_index, int e_index, int *input_array)
+{
+    int i;
+    for(i = b_index; i < e_index - 1; i++)
+    {
+        if(input_array[i] > input_array[i+1])
+        {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+int check_states(int *sublist_states, int sublist_num)
+{
+    int i = 0;
+    for(; i < sublist_num; i++)
+    {
+        if(sublist_states[i] != 1)
+        {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+void print_states(int *sublist_states, int sublist_num)
+{
+    int i = 0;
+    for(; i < sublist_num; i++)
+    {
+        printf("state %d: %d\n", i, sublist_states[i]);
+    }
 }

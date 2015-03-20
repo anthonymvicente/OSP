@@ -31,8 +31,10 @@ int main(int argc, char *argv[])
 
     int thread_create_status;
     int thread_join_status;
+    int sublist_states[thread_num];
     pthread_t thread[thread_num];
     pthread_mutex_t border_locks[thread_num - 1];
+    pthread_mutex_t state_lock;
     param_struct thread_params[thread_num];
 
     // initalize mutexs, VERY IMPORTANT
@@ -41,12 +43,24 @@ int main(int argc, char *argv[])
         pthread_mutex_init(&border_locks[i], NULL);
     }
 
+    pthread_mutex_init(&state_lock, NULL);
+
+    // initialize sublist states
     for(i = 0; i < thread_num; i++)
     {
+        sublist_states[i] = 0;
+    }
+
+    for(i = 0; i < thread_num; i++)
+    {
+        thread_params[i].sublist_num = i;
         // get start and end indices for each threads subarray
         thread_params[i].b_index = i * sub_array_size;
         thread_params[i].e_index = thread_params[i].b_index + sub_array_size;
         thread_params[i].input_array = input_array;
+        thread_params[i].num_of_sublists = thread_num;
+        thread_params[i].sublist_states = sublist_states;
+        thread_params[i].state_lock = &state_lock;
 
         // handle remainder indices
         if(i == thread_num - 1)
