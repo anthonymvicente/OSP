@@ -5,7 +5,7 @@
 #include<pthread.h>
 #include"tsort.h"
 
-int read_file(char *file_name, int **input_array)
+int read_file(char *file_name, int **input_array, int **key_array)
 {
     int array_size = 0;
     char f_line[MAX_BUFF];
@@ -57,6 +57,35 @@ int read_file(char *file_name, int **input_array)
             fprintf(stderr, "value out of range : %s\n", f_line);
             exit(1);
         }
+    }
+
+    f_results = fgets(f_line, MAX_BUFF, fp);
+
+    // more data in file
+    // assuming its the sorted array
+    if(f_results != NULL)
+    {
+        *key_array = (int *) malloc(sizeof(int) * array_size);
+
+        for(i = 0; i < array_size; i++)
+        {
+            (*key_array)[i] = strtoimax(f_line, &after_num, BASE);
+
+            if(errno == ERANGE)
+            {
+                fprintf(stderr, "value out of range : %s\n", f_line);
+                exit(1);
+            }
+
+            f_results = fgets(f_line, MAX_BUFF, fp);
+
+            if(f_results == NULL && i != array_size - 1)
+            {
+                fprintf(stderr, "Improperly formatted file, expecting more lines.\n");
+                exit(1);
+            }
+        }
+
     }
 
     return array_size;
@@ -137,20 +166,14 @@ void *tsort(void *params)
             pthread_mutex_unlock(state_lock);
         }
 
-        int l = 0;
         while(sorted)
         {
             //printf("t: %d-%d busy wait\n", b_index, e_index);
             pthread_mutex_lock(state_lock);
-            if(!l)
-            {
-                print_states(thread_params->sublist_states, thread_params->num_of_sublists);
-                l = 1;
-            }
             if(check_states(thread_params->sublist_states, thread_params->num_of_sublists))
             {
                 pthread_mutex_unlock(state_lock);
-                break;
+                pthread_exit(NULL);
             }
             sorted = thread_params->sublist_states[thread_params->sublist_num];
             pthread_mutex_unlock(state_lock);
@@ -167,6 +190,7 @@ void *tsort(void *params)
                 pthread_mutex_lock(state_lock);
                 thread_params->sublist_states[thread_params->sublist_num] = 0;
                 pthread_mutex_unlock(state_lock);
+                sorted = 0;
             }
         }
 
@@ -229,10 +253,10 @@ void *tsort(void *params)
         {
             //printf("t: %d-%d busy wait\n", b_index, e_index);
             pthread_mutex_lock(state_lock);
-            if(check_states(thread_params->sublist_states, thread_params->num_of_sublists))
+            if(check_states(thread_params->sublist_states, thread_params->num_of_sublists) && is_sorted(b_index, e_index, input_array))
             {
                 pthread_mutex_unlock(state_lock);
-                break;
+                pthread_exit(NULL);
             }
             sorted = thread_params->sublist_states[thread_params->sublist_num];
             pthread_mutex_unlock(state_lock);
@@ -249,6 +273,7 @@ void *tsort(void *params)
                 pthread_mutex_lock(state_lock);
                 thread_params->sublist_states[thread_params->sublist_num] = 0;
                 pthread_mutex_unlock(state_lock);
+                sorted = 0;
             }
         }
 

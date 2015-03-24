@@ -14,7 +14,7 @@ typedef struct param_structX
     pthread_mutex_t *state_lock;
 } param_struct;
 
-int read_file(char *, int **);
+int read_file(char *, int **, int **);
 void *tsort(void *);
 void tswap(int, int, int *);
 int is_sorted(int , int , int *);

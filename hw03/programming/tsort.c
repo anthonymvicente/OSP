@@ -11,24 +11,31 @@ int main(int argc, char *argv[])
     char *file_name = argv[2];
 
     int *input_array;
+    int *key_array;
 
-    int array_size = read_file(file_name, &input_array);
+    int array_size = read_file(file_name, &input_array, &key_array);
 
     // calculate number of elements in sub arrays
     int sub_array_size = array_size/thread_num;
     // calculate remainder elements if array is not evenly divisible
     int sub_array_remainder = array_size % thread_num;
 
+    int i = 0;
+/*
     printf("UNSORTED ARRAY\n");
-    int i;
     for(i = 0; i < array_size; i++)
     {
         printf("input_array[%d]: %d\n", i, input_array[i]);
     }
     printf("\n");
 
-    //tsort(0, array_size - 1);
-
+    printf("KEY ARRAY\n");
+    for(i = 0; i < array_size; i++)
+    {
+        printf("key_array[%d]: %d\n", i, key_array[i]);
+    }
+    printf("\n");
+*/
     int thread_create_status;
     int thread_join_status;
     int sublist_states[thread_num];
@@ -38,7 +45,8 @@ int main(int argc, char *argv[])
     param_struct thread_params[thread_num];
 
     // initalize mutexs, VERY IMPORTANT
-    for(i = 0; i < thread_num - 1; i++)
+    pthread_mutex_init(&border_locks[0], NULL);
+    for(i = 1; i < thread_num - 1; i++)
     {
         pthread_mutex_init(&border_locks[i], NULL);
     }
@@ -110,12 +118,13 @@ int main(int argc, char *argv[])
         }
     }
 
-    printf("SORTED ARRAY\n");
+    //printf("SORTED ARRAY\n");
     for(i = 0; i < array_size; i++)
     {
-        printf("input_array[%d]: %d\n", i, input_array[i]);
+        //printf("input_array[%d]: %d\n", i, input_array[i]);
+        printf("%d\n", input_array[i]);
     }
-    printf("\n");
+    //printf("\n");
 
     return 0;
 }
