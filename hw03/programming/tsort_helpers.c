@@ -121,6 +121,8 @@ void *tsort(void *params)
             //    printf("t: %d-%d locking at %d\n", b_index, e_index, c_index);
                 pthread_mutex_lock(r_border);
             }
+
+            // swap elements and update state if needed
             if(input_array[c_index] > input_array[c_index + 1])
             {
                 tswap(c_index, c_index + 1, input_array);
@@ -144,6 +146,7 @@ void *tsort(void *params)
                     pthread_mutex_unlock(state_lock);
                 }
             }
+
             if(c_index == b_index && l_border != NULL)
             {
             //    printf("t: %d-%d unlocking at %d\n", b_index, e_index, c_index);
@@ -155,14 +158,21 @@ void *tsort(void *params)
             }
         }
         // ensure outside state matches inside state
-        thread_params->sublist_states[thread_params->sublist_num] = sorted;
+        //thread_params->sublist_states[thread_params->sublist_num] = sorted;
 
         //printf("t: %d-%d sorted: %d sublist-state: %d\n", b_index, e_index, sorted, thread_params->sublist_states[thread_params->sublist_num]);
 
         if(sorted)
         {
             pthread_mutex_lock(state_lock);
-            thread_params->sublist_states[thread_params->sublist_num] = 1;
+            if(is_sorted(b_index, e_index, input_array))
+            {
+                thread_params->sublist_states[thread_params->sublist_num] = 1;
+            } else
+            {
+                thread_params->sublist_states[thread_params->sublist_num] = 0;
+                sorted = 0;
+            }
             pthread_mutex_unlock(state_lock);
         }
 
@@ -172,13 +182,20 @@ void *tsort(void *params)
             pthread_mutex_lock(state_lock);
             if(check_states(thread_params->sublist_states, thread_params->num_of_sublists))
             {
-                pthread_mutex_unlock(state_lock);
-                pthread_exit(NULL);
+                if(is_sorted(b_index, e_index, input_array))
+                {
+                    pthread_mutex_unlock(state_lock);
+                    pthread_exit(NULL);
+                } else
+                {
+                    thread_params->sublist_states[thread_params->sublist_num] = 0;
+                }
             }
             sorted = thread_params->sublist_states[thread_params->sublist_num];
             pthread_mutex_unlock(state_lock);
         }
 
+        /*
         if(sorted)
         {
             if(is_sorted(b_index, e_index, input_array))
@@ -193,6 +210,7 @@ void *tsort(void *params)
                 sorted = 0;
             }
         }
+        */
 
         sorted = 1;
         for(c_index = e_index; c_index > b_index; c_index--)
@@ -240,12 +258,19 @@ void *tsort(void *params)
                 pthread_mutex_unlock(l_border);
             }
         }
-        thread_params->sublist_states[thread_params->sublist_num] = sorted;
+        //thread_params->sublist_states[thread_params->sublist_num] = sorted;
 
         if(sorted)
         {
             pthread_mutex_lock(state_lock);
-            thread_params->sublist_states[thread_params->sublist_num] = 1;
+            if(is_sorted(b_index, e_index, input_array))
+            {
+                thread_params->sublist_states[thread_params->sublist_num] = 1;
+            } else
+            {
+                thread_params->sublist_states[thread_params->sublist_num] = 0;
+                sorted = 0;
+            }
             pthread_mutex_unlock(state_lock);
         }
 
@@ -253,15 +278,22 @@ void *tsort(void *params)
         {
             //printf("t: %d-%d busy wait\n", b_index, e_index);
             pthread_mutex_lock(state_lock);
-            if(check_states(thread_params->sublist_states, thread_params->num_of_sublists) && is_sorted(b_index, e_index, input_array))
+            if(check_states(thread_params->sublist_states, thread_params->num_of_sublists))
             {
-                pthread_mutex_unlock(state_lock);
-                pthread_exit(NULL);
+                if(is_sorted(b_index, e_index, input_array))
+                {
+                    pthread_mutex_unlock(state_lock);
+                    pthread_exit(NULL);
+                } else
+                {
+                    thread_params->sublist_states[thread_params->sublist_num] = 0;
+                }
             }
             sorted = thread_params->sublist_states[thread_params->sublist_num];
             pthread_mutex_unlock(state_lock);
         }
 
+        /*
         if(sorted)
         {
             if(is_sorted(b_index, e_index, input_array))
@@ -276,6 +308,7 @@ void *tsort(void *params)
                 sorted = 0;
             }
         }
+        */
 
     }
 
@@ -304,10 +337,10 @@ int is_sorted(int b_index, int e_index, int *input_array)
     return 1;
 }
 
-int check_states(int *sublist_states, int sublist_num)
+int check_states(int *sublist_states, int num_of_sublists)
 {
     int i = 0;
-    for(; i < sublist_num; i++)
+    for(; i < num_of_sublists; i++)
     {
         if(sublist_states[i] != 1)
         {
