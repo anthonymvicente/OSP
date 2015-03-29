@@ -195,23 +195,6 @@ void *tsort(void *params)
             pthread_mutex_unlock(state_lock);
         }
 
-        /*
-        if(sorted)
-        {
-            if(is_sorted(b_index, e_index, input_array))
-            {
-            //    printf("t: %d-%d exiting with state %d\n", b_index, e_index, thread_params->sublist_states[thread_params->sublist_num]);
-                pthread_exit(NULL);
-            } else
-            {
-                pthread_mutex_lock(state_lock);
-                thread_params->sublist_states[thread_params->sublist_num] = 0;
-                pthread_mutex_unlock(state_lock);
-                sorted = 0;
-            }
-        }
-        */
-
         sorted = 1;
         for(c_index = e_index; c_index > b_index; c_index--)
         {
@@ -292,23 +275,6 @@ void *tsort(void *params)
             sorted = thread_params->sublist_states[thread_params->sublist_num];
             pthread_mutex_unlock(state_lock);
         }
-
-        /*
-        if(sorted)
-        {
-            if(is_sorted(b_index, e_index, input_array))
-            {
-            //    printf("t: %d-%d exiting with state %d\n", b_index, e_index, thread_params->sublist_states[thread_params->sublist_num]);
-                pthread_exit(NULL);
-            } else
-            {
-                pthread_mutex_lock(state_lock);
-                thread_params->sublist_states[thread_params->sublist_num] = 0;
-                pthread_mutex_unlock(state_lock);
-                sorted = 0;
-            }
-        }
-        */
 
     }
 
