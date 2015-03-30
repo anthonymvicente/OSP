@@ -12,6 +12,10 @@ typedef struct param_structX
     int num_of_sublists;
     int *sublist_states;
     pthread_mutex_t *state_lock;
+    pthread_cond_t *thread_cond;
+    pthread_cond_t *l_cond;
+    pthread_cond_t *r_cond;
+    pthread_cond_t *main_cond;
 } param_struct;
 
 int read_file(char *, int **, int **);
