@@ -3,7 +3,7 @@
 #include<inttypes.h>
 #include<errno.h>
 #include<pthread.h>
-#include"tsort.h"
+#include"avicente_tsort.h"
 
 int main(int argc, char *argv[])
 {

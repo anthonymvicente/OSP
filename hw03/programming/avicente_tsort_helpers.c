@@ -3,7 +3,7 @@
 #include<inttypes.h>
 #include<errno.h>
 #include<pthread.h>
-#include"tsort.h"
+#include"avicente_tsort.h"
 
 int read_file(char *file_name, int **input_array, int **key_array)
 {
