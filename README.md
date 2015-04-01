@@ -12,3 +12,8 @@ Homework 02
 -----------
 
 Here we created a bare bones unix shell capable of executing basic command line commands.
+
+Homework 03
+-----------
+
+Multithreaded sorting using modified bubble sort algorithm. Includes use of mutexes, conditions, and pthreads.
