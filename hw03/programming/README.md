@@ -5,14 +5,22 @@ Author: Anthony Vicente
 Files:
 
 * README - this document
-* tsort.h - header file
-* tsort_helpers.c - c file containing helper functions
-* tsort.c - C source code for tsort
+* avicente_tsort.h - header file
+* avicente_tsort_helpers.c - c file containing helper functions for phase 03
+* avicente_tsort.c - C source code for tsort for phase 03
+* avicente_tsort_helpers_phase02.c - c file containing helper functions for phase 02
+* avicente_tsort_phase02.c - C source code for tsort for phase 02
 * makefile - makefile to compile C binary
 
 INSTALL:
 
+for phase 03:
+
     make
+
+for phase 02:
+
+    make phase02make
 
 USAGE:
 
