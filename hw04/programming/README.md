@@ -45,7 +45,7 @@ QUESTIONS:
 
     2). sigaction() specifies how a thread will handle incoming signals while sigwait() will block on the call until the specified signal is received.
 
-    3).
+    3). Using the TIMER_ABSTIME makes the timer an absolute timer, meaning the values set in the timespec are absolute times when the timer will fire instead of times relative to when the timer_settime() function is called.
 
     4). When the thread received the SIGTERM signal.
 
