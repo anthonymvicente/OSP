@@ -41,6 +41,14 @@ static void wait_for_queue();
  */
 void update_run_time(thread_info_t *info) {
         /* TODO: implement this function */
+        struct timespec r_time;
+        clock_gettime(CLOCK_REALTIME, &r_time);
+
+        info->run_time = info->run_time + time_difference(&r_time, &(info->resume_time));
+
+        info->resume_time = r_time;
+
+        clock_gettime(CLOCK_REALTIME, &(info->suspend_time));
 }
 
 /* 
@@ -49,6 +57,13 @@ void update_run_time(thread_info_t *info) {
  */
 void update_wait_time(thread_info_t *info) {
         /* TODO: implement this function */
+        struct timespec w_time;
+        clock_gettime(CLOCK_REALTIME, &w_time);
+
+        info->wait_time = info->wait_time + time_difference(&w_time, &(info->suspend_time));
+        info->suspend_time = w_time;
+
+        clock_gettime(CLOCK_REALTIME, &(info->resume_time));
 }
 
 
@@ -63,6 +78,16 @@ static void init_sched_queue(int queue_size)
 	pthread_mutex_init(&sched_queue.lock, NULL);
 
 	/* TODO: initialize the timer */
+        struct sigevent sev;
+
+        sev.sigev_notify = SIGEV_SIGNAL;
+        sev.sigev_signo = SIGALRM;
+        sev.sigev_value.sival_ptr = &timer;
+        if(timer_create(CLOCK_REALTIME, &sev, &timer) == -1)
+        {
+            fprintf(stderr, "error creating timer\n");
+        }
+
 }
 
 /*
@@ -75,6 +100,7 @@ static void resume_worker(thread_info_t *info)
 	/*
 	 * TODO: signal the worker thread that it can resume 
 	 */
+        pthread_kill(info->thrid, SIGUSR2);
 
 	/* update the wait time for the thread */
 	update_wait_time(info);
@@ -86,6 +112,7 @@ void cancel_worker(thread_info_t *info)
 {
 
 	/* TODO: send a signal to the thread, telling it to kill itself*/
+        pthread_kill(info->thrid, SIGTERM);
 
 	/* Update global wait and run time info */
 	wait_times += info->wait_time;
@@ -110,20 +137,23 @@ void cancel_worker(thread_info_t *info)
 static void suspend_worker(thread_info_t *info)
 {
 
-        int whatgoeshere = 0;
+        //int whatgoeshere = 0;
 	printf("Scheduler: suspending %lu.\n", info->thrid);
 
 	/*update the run time for the thread*/
 	update_run_time(info);
 
 	/* TODO: Update quanta remaining. */
+        info->quanta = info->quanta - QUANTUM;
 
 	/* TODO: decide whether to cancel or suspend thread */
-	if(whatgoeshere) {
+	if(info->quanta > 0) {
 	  /*
 	   * Thread still running: suspend.
 	   * TODO: Signal the worker thread that it should suspend.
 	   */
+
+            pthread_kill(info->thrid, SIGUSR1);
 
 	  /* Update Schedule queue */
 	  list_remove(&sched_queue,info->le);
@@ -181,13 +211,30 @@ void timer_handler()
  * Set up the signal handlers for SIGALRM, SIGUSR1, and SIGTERM.
  * TODO: Implement this function.
  */
+        struct sigaction sa_alrm;
+        struct sigaction sa_term;
+        struct sigaction sa_usr;
+
 void setup_sig_handlers() {
 
 	/* Setup timer handler for SIGALRM signal in scheduler */
 
+        sa_alrm.sa_handler = timer_handler;
+        //sigemptyset(&sa_alrm.sa_mask);
+        sigaction(SIGALRM, &sa_alrm, NULL);
+
+
 	/* Setup cancel handler for SIGTERM signal in workers */
 
+        sa_term.sa_handler = cancel_thread;
+        //sigemptyset(&sa_term.sa_mask);
+        sigaction(SIGTERM, &sa_term, NULL);
+
 	/* Setup suspend handler for SIGUSR1 signal in workers */
+
+        sa_usr.sa_handler = suspend_thread;
+        //sigemptyset(&sa_usr.sa_mask);
+        sigaction(SIGUSR1, &sa_usr, NULL);
 
 }
 
@@ -257,11 +304,14 @@ static void create_workers(int thread_count, int *quanta)
 		if ((err = pthread_create(&info->thrid, NULL, start_worker, (void *)info)) != 0) {
 			exit_error(err);
 		}
+                info->wait_time = 0;
+                info->run_time = 0;
+                clock_gettime(CLOCK_REALTIME, &(info->suspend_time));
+                clock_gettime(CLOCK_REALTIME, &(info->resume_time));
 		printf("Main: detaching worker thread %lu.\n", info->thrid);
 		pthread_detach(info->thrid);
 
 		/* TODO: initialize the time variables for each thread for performance evalution*/
-
 	}
 }
 
@@ -273,6 +323,14 @@ static void *scheduler_run(void *unused)
 	wait_for_queue();
 
 	/* TODO: start the timer */
+        struct itimerspec its;
+
+        its.it_value.tv_sec = QUANTUM;
+        its.it_value.tv_nsec = 0;
+        its.it_interval.tv_sec = QUANTUM;
+        its.it_interval.tv_nsec = 0;
+
+        timer_settime(timer, 0, &its, NULL);
 
 	/*keep the scheduler thread alive*/
 	while( !quit )
