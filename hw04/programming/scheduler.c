@@ -83,10 +83,7 @@ static void init_sched_queue(int queue_size)
         sev.sigev_notify = SIGEV_SIGNAL;
         sev.sigev_signo = SIGALRM;
         sev.sigev_value.sival_ptr = &timer;
-        if(timer_create(CLOCK_REALTIME, &sev, &timer) == -1)
-        {
-            fprintf(stderr, "error creating timer\n");
-        }
+        timer_create(CLOCK_REALTIME, &sev, &timer);
 
 }
 
