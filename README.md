@@ -17,3 +17,13 @@ Homework 03
 -----------
 
 Multithreaded sorting using modified bubble sort algorithm. Includes use of mutexes, conditions, and pthreads.
+
+Homework 04
+-----------
+
+Program to display Round Robin scheduling in action. Most of the code for this was delivered, with me adding a few pieces to get it fully working.
+
+Homework 05
+-----------
+
+The Virtual Memory Manager program is used to translate a list of logical addresses to physical addresses while reading data from a binary file on disk.
