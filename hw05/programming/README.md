@@ -7,7 +7,6 @@ Files:
 * README - this document
 * vmm.c - C source file
 * vmm.h - header file
-* a.out - executable binary
 * Makefile - makefile to compile C binary
 
 INSTALL:
