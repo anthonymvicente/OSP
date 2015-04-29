@@ -99,8 +99,10 @@ int main(int argc, char *argv[])
     printf("TLB Hits = %d\n", tlb_hits);
     printf("TLB Hit Rate = %.3f\n", ((float) tlb_hits / (float) num_of_addresses));
 
+    /*
     free_tlb();
     free_l_list(&head);
+    */
 
     return 0;
 }
